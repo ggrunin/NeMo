@@ -59,6 +59,7 @@ class TransformerLMModel(ModelPT):
             tokenizer_model=cfg.tokenizer.get("tokenizer_model", None),
             vocab_file=cfg.tokenizer.get("vocab_file", None),
             bpe_dropout=cfg.tokenizer.get("bpe_dropout", 0.0),
+            special_tokens=cfg.tokenizer.get("special_tokens", {})
         )
 
         # init superclass
@@ -192,7 +193,7 @@ class TransformerLMModel(ModelPT):
         self.eval_epoch_end(outputs, 'test')
 
     def setup_tokenizer(
-        self, tokenizer_name=None, tokenizer_model=None, vocab_file=None, bpe_dropout=0.0,
+        self, tokenizer_name=None, tokenizer_model=None, vocab_file=None, bpe_dropout=0.0, special_tokens=None
     ):
 
         supported_tokenizers = ['yttm', 'huggingface', 'sentencepiece', 'word']
@@ -204,7 +205,7 @@ class TransformerLMModel(ModelPT):
             tokenizer_model=self.register_artifact("cfg.tokenizer.tokenizer_model", tokenizer_model),
             vocab_file=vocab_file,
             bpe_dropout=bpe_dropout,
-            special_tokens=None,
+            special_tokens=dict(special_tokens or {}),
             use_fast=False,
         )
 

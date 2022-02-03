@@ -6,7 +6,9 @@ model:
   preproc_out_dir: null # path to store data preprocessing outputs
   
   train_ds:
-    file_name: ??? # path to file with training data
+    # path to file with validation data
+    #file_name: "/data/atc_tenant/asr/ggrunin/text_data/fisher_rx_med_clean_shuf_train.txt"
+    file_name: /data/atc_tenant/asr/ggrunin/text_data/cleaned_medchat_rx_combined_train_shuf.txt
     tokens_in_batch: 4096
     clean: true
     shuffle: true
@@ -20,7 +22,9 @@ model:
     # tar_shuffle_n: 256
 
   validation_ds:
-    file_name: ??? # path to file with validation data
+    # path to file with validation data
+    #file_name: "/data/atc_tenant/asr/ggrunin/text_data/fisher_rx_med_clean_shuf_val.txt" # path to file with validation data
+    file_name: /data/atc_tenant/asr/ggrunin/text_data/cleaned_medchat_rx_combined_test.txt    
     tokens_in_batch: 512
     clean: false
     shuffle: false
@@ -30,7 +34,9 @@ model:
     num_workers: 8
     
   test_ds:
-    file_name: ??? # path to file with test data
+    # path to file with test data
+    #file_name: "/data/atc_tenant/asr/ggrunin/text_data/fisher_rx_med_clean_shuf_val.txt" # path to file with test data
+    file_name: /data/atc_tenant/asr/ggrunin/text_data/cleaned_medchat_rx_combined_test.txt    
     tokens_in_batch: 512
     clean: false
     shuffle: false
@@ -53,10 +59,14 @@ model:
       warmup_ratio: 0.1
 
   tokenizer:
-    tokenizer_name: yttm
-    tokenizer_model: ???
+    tokenizer_name: yttm #sentencepiece #yttm
+    #tokenizer_model: /data/atc_tenant/ASR_experiments/NeMo/scripts/asr_language_modeling/neural_rescorer/fisher_rx_med_tokenizer.nemo #"/data/atc_tenant/asr/ggrunin/tokenizer.model"
+    tokenizer_model: /data/atc_tenant/ASR_experiments/NeMo/scripts/asr_language_modeling/neural_rescorer/medchat_rx_combined_yttm_tokenizer.nemo
     vocab_file: null
     special_tokens: null
+    #bos_token: <bos>
+    #eos_token: <eos>
+    #pad_token: <pad>    
     training_sample_size: null # valid for sentencepiece tokenizer
 
   encoder:
@@ -85,7 +95,7 @@ model:
     dropout: 0.0
 
 trainer:
-  gpus: 4
+  gpus: 2
   num_nodes: 1
   max_epochs: 200
   precision: 16 # Should be set to 16 for O1 and O2, default is 16 as PT ignores it when am_level is O0

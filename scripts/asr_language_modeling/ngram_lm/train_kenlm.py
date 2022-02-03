@@ -23,7 +23,9 @@
 # You need to install the KenLM library and also the beam search decoders to use this feature. Please refer
 # to 'scripts/ngram_lm/install_beamsearch_decoders.sh' on how to install them.
 #
-# USAGE: python train_kenlm.py --nemo_model_file <path to the .nemo file of the model> \
+# USAGE: python train_kenlm.py --riva [whether to build the model for Riva (use the original vocabulary for tokenization)] \
+#                              --nemo_model_file <path to the .nemo file of the model> \
+#                              --tokenizer_model_file <path to the tokenizer model file> \
 #                              --train_file <path to the training text or JSON manifest file \
 #                              --kenlm_bin_path <path to the bin folder of KenLM library> \
 #                              --kenlm_model_file <path to store the binary KenLM model> \
@@ -43,6 +45,7 @@ import kenlm_utils
 import torch
 
 import nemo.collections.asr as nemo_asr
+import nemo.collections.nlp as nemo_nlp
 from nemo.utils import logging
 
 """
@@ -69,10 +72,16 @@ def main():
     )
     parser.add_argument(
         "--nemo_model_file",
-        required=True,
+        required=False,
         type=str,
         help="The path of the '.nemo' file of the ASR model or name of a pretrained model",
     )
+    parser.add_argument(
+        "--tokenizer_model_file", required=False, type=str, help="The path of the tokenizer model"
+    )
+    parser.add_argument(
+        "--riva", action='store_true', help="Whether to build the model for Riva (use the original vocabulary for tokenization)"
+    )    
     parser.add_argument(
         "--kenlm_model_file", required=True, type=str, help="The path to store the KenLM binary model file"
     )
@@ -84,22 +93,32 @@ def main():
     args = parser.parse_args()
 
     """ TOKENIZER SETUP """
-    logging.info(f"Loading nemo model '{args.nemo_model_file}' ...")
+    model = None
+    if args.nemo_model_file is not None:
+        logging.info(f"Loading nemo model '{args.nemo_model_file}' ...")
 
-    if args.nemo_model_file.endswith('.nemo'):
-        model = nemo_asr.models.ASRModel.restore_from(args.nemo_model_file, map_location=torch.device('cpu'))
+        if args.nemo_model_file.endswith('.nemo'):
+            model = nemo_asr.models.ASRModel.restore_from(args.nemo_model_file, map_location=torch.device('cpu'))
+        else:
+            logging.warning(
+                "nemo_model_file does not end with .nemo, therefore trying to load a pretrained model with this name."
+            )
+            model = nemo_asr.models.ASRModel.from_pretrained(args.nemo_model_file, map_location=torch.device('cpu'))
+
+        encoding_level = kenlm_utils.SUPPORTED_MODELS.get(type(model).__name__, None)
+        if not encoding_level:
+            logging.warning(
+                f"Model type '{type(model).__name__}' may not be supported. Would try to train a char-level LM."
+            )
+            encoding_level = 'char'
+        tokenizer = model.tokenizer
+    elif args.tokenizer_model_file is not None:
+        # assume BPE tokenizer
+        encoding_level = "subword"
+        tokenizer = nemo_nlp.modules.get_tokenizer(tokenizer_name="sentencepiece", tokenizer_model=args.tokenizer_model_file, special_tokens=None)
     else:
-        logging.warning(
-            "nemo_model_file does not end with .nemo, therefore trying to load a pretrained model with this name."
-        )
-        model = nemo_asr.models.ASRModel.from_pretrained(args.nemo_model_file, map_location=torch.device('cpu'))
+        raise RuntimeError("Either --nemo_model_file or --tokenizer_model_file must be specified!")
 
-    encoding_level = kenlm_utils.SUPPORTED_MODELS.get(type(model).__name__, None)
-    if not encoding_level:
-        logging.warning(
-            f"Model type '{type(model).__name__}' may not be supported. Would try to train a char-level LM."
-        )
-        encoding_level = 'char'
 
     """ DATASET SETUP """
     logging.info(f"Encoding the train file '{args.train_file}' ...")
@@ -108,11 +127,11 @@ def main():
     if encoding_level == "subword":
         kenlm_utils.tokenize_text(
             dataset,
-            model.tokenizer,
+            tokenizer,
             path=encoded_train_file,
             chunk_size=CHUNK_SIZE,
             buffer_size=CHUNK_BUFFER_SIZE,
-            token_offset=TOKEN_OFFSET,
+            token_offset=TOKEN_OFFSET if not args.riva else None,
         )
         # --discount_fallback is needed for training KenLM for BPE-based models
         discount_arg = "--discount_fallback"
@@ -123,7 +142,8 @@ def main():
 
         discount_arg = ""
 
-    del model
+    if model is not None:
+        del model
 
     arpa_file = f"{args.kenlm_model_file}.tmp.arpa"
     """ LMPLZ ARGUMENT SETUP """

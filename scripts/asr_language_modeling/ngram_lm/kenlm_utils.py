@@ -60,12 +60,17 @@ def read_train_file(path, lowercase: bool = False):
     return text_dataset
 
 
-def tokenize_str(texts, tokenizer, offset):
+def tokenize_str(texts, tokenizer, offset=None):
     tokenized_text = []
-    for text in texts:
-        tok_text = tokenizer.text_to_ids(text)
-        tok_text = [chr(token + offset) for token in tok_text]
-        tokenized_text.append(tok_text)
+    if offset is not None:
+        for text in texts:
+            tok_text = tokenizer.text_to_ids(text)
+            tok_text = [chr(token + offset) for token in tok_text]
+            tokenized_text.append(tok_text)
+    else:
+        for text in texts:
+            tok_text = tokenizer.text_to_tokens(text)
+            tokenized_text.append(tok_text)
     return tokenized_text
 
 
